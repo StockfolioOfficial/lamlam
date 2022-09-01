@@ -7,10 +7,11 @@ import (
 
 func load(ctx context.Context, wd string, env []string, patterns []string) ([]*packages.Package, []error) {
 	cfg := &packages.Config{
-		Context: ctx,
-		Mode:    packages.LoadAllSyntax,
-		Dir:     wd,
-		Env:     env,
+		Context:    ctx,
+		Mode:       packages.LoadAllSyntax,
+		Dir:        wd,
+		Env:        env,
+		BuildFlags: []string{"-tags=" + buildTag},
 	}
 	escaped := make([]string, len(patterns))
 	for i := range patterns {
