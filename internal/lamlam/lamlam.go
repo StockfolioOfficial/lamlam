@@ -2,71 +2,65 @@ package lamlam
 
 import (
 	"context"
+	"errors"
 	"github.com/stockfolioofficial/lamlam/internal/config"
-	"golang.org/x/tools/go/packages"
 	"os"
 	"path/filepath"
 )
 
 type GenerateResult struct {
-	PkgPath    string
+	PkgPaths   []string
 	OutputPath string
 	Content    []byte
-	Errs       []error
 }
 
 func (gen GenerateResult) Commit() error {
 	if len(gen.Content) == 0 {
 		return nil
 	}
+
+	err := os.MkdirAll("./"+filepath.Dir(gen.OutputPath), os.ModePerm)
+	if err != nil {
+		return err
+	}
 	return os.WriteFile(gen.OutputPath, gen.Content, 0666)
 }
 
 func Generate(ctx context.Context, wd string, env []string, cfg *config.Config) ([]GenerateResult, []error) {
-	pkgs, errs := load(ctx, wd, env, cfg.LambdaList.Patterns())
+	res := make([]GenerateResult, 0, len(cfg.LambdaList))
+	for i := range cfg.LambdaList {
+		lambda := &cfg.LambdaList[i]
 
-	if len(errs) > 0 {
-		return nil, errs
-	}
-
-	table := makePackageLambdaPair(pkgs, cfg)
-	res := make([]GenerateResult, 0, len(table))
-
-	for pkg, lambda := range table {
-		gen := makeGen(pkg)
-
-		gr := GenerateResult{
-			PkgPath: pkg.PkgPath,
-			//TODO: refactor "lamlam_gen.go", 변수화 고민
-			OutputPath: filepath.Join(filepath.Dir(gen.intf.FilePath()), "lamlam_gen.go"),
+		if len(lambda.Type) == 0 {
+			return nil, []error{errors.New("empty interface type")}
 		}
-		output, err := generate(gen, lambda)
+
+		var gr GenerateResult
+
+		//TODO: refactor "lamlam_gen.go", 변수화 고민
+		gr.OutputPath = filepath.Join(lambda.Output, "lamlam_gen.go")
+		gr.PkgPaths = make([]string, 0, len(lambda.Type))
+		for _, typ := range lambda.Type {
+			pkgPath, err := typ.GetPackagePath()
+			if err != nil {
+				return nil, []error{err}
+			}
+
+			gr.PkgPaths = append(gr.PkgPaths, pkgPath)
+		}
+		pkgs, errs := load(ctx, wd, env, gr.PkgPaths)
+		if len(errs) > 0 {
+			return nil, errs
+		}
+
+		var err error
+		gr.Content, err = gen(pkgs, lambda)
 		if err != nil {
-			gr.Errs = append(gr.Errs, err)
-		} else {
-			gr.Content = output
+			return nil, []error{err}
 		}
 
 		res = append(res, gr)
 	}
 
 	return res, nil
-}
-
-func makePackageLambdaPair(pkgs []*packages.Package, cfg *config.Config) map[*packages.Package]*config.Lambda {
-	res := make(map[*packages.Package]*config.Lambda)
-
-	lambdaMap := cfg.LambdaList.ToMap()
-
-	for _, pkg := range pkgs {
-		lambda := lambdaMap[pkg.PkgPath]
-		if lambda == nil {
-			// TODO: error
-			continue
-		}
-
-		res[pkg] = lambda
-	}
-
-	return res
 }

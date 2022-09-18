@@ -1,6 +1,8 @@
 package config
 
 import (
+	"errors"
+	"gopkg.in/yaml.v3"
 	"strings"
 )
 
@@ -15,53 +17,63 @@ type Config struct {
 
 type LambdaList []Lambda
 
-//TODO: need error return
-func (list LambdaList) Patterns() (res []string) {
-	res = make([]string, 0, len(list))
-	for _, item := range list {
+type Lambda struct {
+	Type       InterfaceTypes `yaml:"type"`
+	LambdaName string         `yaml:"lambda_name"`
+	Output     string         `yaml:"output"`
+}
 
-		pattern := item.Pattern()
-		if pattern == "" {
-			//TODO: error
-			continue
-		}
+type InterfaceTypes []InterfaceType
 
-		res = append(res, pattern)
+func (list InterfaceTypes) MarshalYAML() (interface{}, error) {
+	switch len(list) {
+	case 0:
+		return nil, nil
+	case 1:
+		return list[0], nil
 	}
 
+	return []InterfaceType(list), nil
+}
+
+func (list *InterfaceTypes) UnmarshalYAML(value *yaml.Node) error {
+	switch value.Kind {
+	case yaml.SequenceNode:
+		for _, node := range value.Content {
+			if node.Kind != yaml.ScalarNode {
+				return errors.New("unsupported node type, must be scalar type")
+			}
+
+			*list = append(*list, InterfaceType(node.Value))
+		}
+	case yaml.ScalarNode:
+		*list = append(*list, InterfaceType(value.Value))
+	default:
+		return errors.New("unsupported node type")
+	}
+	return nil
+}
+
+type InterfaceType string
+
+func (i InterfaceType) Divide() (pkg, typeName string, err error) {
+	pkgTypeName := string(i)
+	lastDot := strings.LastIndex(pkgTypeName, ".")
+	if lastDot == -1 {
+		err = errors.New("must include Type name")
+		return
+	}
+
+	pkg, typeName = pkgTypeName[:lastDot], pkgTypeName[lastDot+1:]
 	return
 }
 
-func (list LambdaList) ToMap() map[string]*Lambda {
-	res := make(map[string]*Lambda)
-
-	for i := range list {
-		l := &list[i]
-		res[l.Pattern()] = l
-	}
-
-	return res
+func (i InterfaceType) GetPackagePath() (pkg string, err error) {
+	pkg, _, err = i.Divide()
+	return
 }
 
-type Lambda struct {
-	Type       string `yaml:"type"`
-	LambdaName string `yaml:"lambda_name"`
-}
-
-func (l Lambda) Pattern() string {
-	lastDot := strings.LastIndex(l.Type, ".")
-	if lastDot == -1 {
-		return ""
-	}
-
-	return l.Type[:lastDot]
-}
-
-func (l Lambda) TypeName() string {
-	lastDot := strings.LastIndex(l.Type, ".")
-	if lastDot == -1 {
-		return ""
-	}
-
-	return l.Type[lastDot+1:]
+func (i InterfaceType) GetTypeName() (typeName string, err error) {
+	_, typeName, err = i.Divide()
+	return
 }

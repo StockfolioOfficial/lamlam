@@ -10,13 +10,20 @@ func GetInitConfigVersion1() *Config {
 		Version: Version1,
 		LambdaList: []Lambda{
 			{
-				Type:       "github.com/stockfolioofficial/lamlam.SomeInterface1",
+				Type: InterfaceTypes{
+					"github.com/stockfolioofficial/lamlam.SomeInterface1",
+					"github.com/stockfolioofficial/lamlam.SomeInterface2",
+				},
 				LambdaName: "my-lambda-name1",
+				Output:     "./infra/foo",
 			},
 
 			{
-				Type:       "github.com/stockfolioofficial/lamlam.SomeInterface2",
+				Type: InterfaceTypes{
+					"github.com/stockfolioofficial/lamlam.SomeInterface3",
+				},
 				LambdaName: "my-lambda-name2",
+				Output:     "infra/bar",
 			},
 		},
 	}

@@ -3,8 +3,8 @@ package lamlam
 import "encoding/json"
 
 type payloadType struct {
-	FuncKey string `json:"funcKey"`
-	Data    string `json:"data"`
+	FuncKey string          `json:"funcKey"`
+	Data    json.RawMessage `json:"data"`
 }
 
 func (p *payloadType) setData(src any) error {
@@ -13,10 +13,10 @@ func (p *payloadType) setData(src any) error {
 		return err
 	}
 
-	p.Data = string(data)
+	p.Data = data
 	return nil
 }
 
 func (p *payloadType) bindData(dst any) error {
-	return json.Unmarshal([]byte(p.Data), dst)
+	return json.Unmarshal(p.Data, dst)
 }

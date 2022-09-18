@@ -24,6 +24,7 @@ var (
 
 		"init": true,
 		"gen":  true,
+		"impl": true,
 	}
 )
 
@@ -126,11 +127,11 @@ func (*genCmd) Usage() string {
 `
 }
 
-func (cmd *genCmd) SetFlags(_ *flag.FlagSet) {
+func (*genCmd) SetFlags(_ *flag.FlagSet) {
 
 }
 
-func (cmd *genCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
+func (*genCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
 	wd, err := os.Getwd()
 	if err != nil {
 		log.Println("failed to get working directory: ", err)
@@ -159,20 +160,15 @@ func (cmd *genCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interfa
 
 	success := true
 	for _, out := range outs {
-		if len(out.Errs) > 0 {
-			logErrors(out.Errs)
-			log.Printf("%s: generate failed\n", out.PkgPath)
-			success = false
-		}
 
 		if len(out.Content) == 0 {
 			continue
 		}
 
 		if err := out.Commit(); err == nil {
-			log.Printf("%s: wrote %s\n", out.PkgPath, out.OutputPath)
+			log.Printf("%s: wrote %s\n", strings.Join(out.PkgPaths, ", "), out.OutputPath)
 		} else {
-			log.Printf("%s: failed to write %s: %v\n", out.PkgPath, out.OutputPath, err)
+			log.Printf("%s: failed to write %s: %v\n", strings.Join(out.PkgPaths, ", "), out.OutputPath, err)
 			success = false
 		}
 	}
